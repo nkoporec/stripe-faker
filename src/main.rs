@@ -38,27 +38,28 @@ async fn main() {
 
     match matches.subcommand() {
         Some(("create-users", sub_matches)) => {
-            let empty = "".to_string();
+            let empty_string = "".to_string();
             let num_of_users = sub_matches.get_one::<String>("NUM_OF_USERS").expect("required");
-            let subscription = sub_matches.get_one::<String>("subscription").unwrap_or(&empty);
-            let card = sub_matches.get_one::<String>("card").unwrap_or(&empty);
-            let secret_key = sub_matches.get_one::<String>("secret").unwrap_or(&empty);
-            create_users_cmd(num_of_users, subscription, card, secret_key).await;
+            let subscription_name = sub_matches.get_one::<String>("subscription_create").unwrap_or(&empty_string);
+            let card = sub_matches.get_one::<String>("credit_card").unwrap_or(&empty_string);
+            let secret_key = sub_matches.get_one::<String>("secret_key").unwrap_or(&empty_string);
+            create_users_cmd(num_of_users, subscription_name, card, secret_key).await;
         }
         _ => unreachable!(),
     }
 }
 
-async fn create_users_cmd(num_of_users: &String, subscription: &String, card: &String, secret_key: &String) {
-    let empty = "".to_string();
-    let mut stripe_secret_key = std::env::var("STRIPE_SECRET_KEY").unwrap_or(empty);
+async fn create_users_cmd(num_of_users: &String, subscription_name: &String, card: &String, secret_key: &String) {
+    let empty_string = "".to_string();
+    let mut stripe_secret_key = std::env::var("STRIPE_SECRET_KEY").unwrap_or(empty_string);
 
+    // Arg always have a higher priority.
     if secret_key.len() >= 1 {
         stripe_secret_key = secret_key.to_string();
     }
 
     if stripe_secret_key.len() <= 0 {
-        println!("Missing STRIPE_SECRET_KEY. You can passed it by argument --secret or use a environment variable STRIPE_SECRET_KEY");
+        println!("Missing STRIPE_SECRET_KEY. You can passed it by argument --secret_key or use a environment variable STRIPE_SECRET_KEY");
         return;
     }
 
@@ -66,14 +67,16 @@ async fn create_users_cmd(num_of_users: &String, subscription: &String, card: &S
 
     // Create a new subscription.
     let mut price = Price::default();
-    if !subscription.is_empty() {
-        println!(" -- Creating a new subscription product ... --");
+    if !subscription_name.is_empty() {
+        println!(" -- Creating a new subscription product --");
+
         let product = {
-            let mut create_product = CreateProduct::new(subscription);
+            let mut create_product = CreateProduct::new(subscription_name);
             create_product.metadata =
                 Some([("async-stripe".to_string(), "true".to_string())].iter().cloned().collect());
             Product::create(&client, create_product).await.unwrap()
         };
+
         let stripe_price = {
             let mut create_price = CreatePrice::new(Currency::USD);
             create_price.product = Some(IdOrCreate::Id(&product.id));
@@ -90,7 +93,7 @@ async fn create_users_cmd(num_of_users: &String, subscription: &String, card: &S
 
     let num = num_of_users.parse::<i32>().expect("Can't parse to i32");
 
-    println!(" -- Creating fake users ... --");
+    println!(" -- Creating fake users --");
     let mut i = 0;
     while i < num {
         let name = FirstName().fake::<String>() + " " + &LastName().fake::<String>();
@@ -145,7 +148,7 @@ async fn create_users_cmd(num_of_users: &String, subscription: &String, card: &S
         };
 
         // Add the subscription.
-        if !subscription.is_empty() {
+        if !subscription_name.is_empty() {
             let _subscription = {
                 let mut params = CreateSubscription::new(customer.id);
                 params.items = Some(vec![CreateSubscriptionItems {
@@ -160,6 +163,8 @@ async fn create_users_cmd(num_of_users: &String, subscription: &String, card: &S
         }
 
         i += 1;
-        println!("Created user #{}, with name {}", i, name);
+        println!("    --> Created user #{}, with name {}", i, name);
     }
+
+    println!(" -- Successfully created {} amount of users --", num_of_users);
 }
