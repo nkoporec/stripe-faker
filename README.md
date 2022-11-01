@@ -21,3 +21,12 @@ cargo install
 ## `stripe-faker --help`
 
 Show a list of options and commands for the <abbr title="Command Line Interface">CLI</abbr>.
+
+
+## `stripe-faker create-users {number_of_users}`
+
+Create a N amount of users on Stripe.
+
+```
+stripe-faker create-users 50
+```
